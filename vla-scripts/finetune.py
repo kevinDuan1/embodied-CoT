@@ -42,6 +42,7 @@ from prismatic.util.data_utils import PaddedCollatorForActionPrediction
 from prismatic.vla.action_tokenizer import ActionTokenizer
 from prismatic.vla.datasets import RLDSBatchTransform, RLDSDataset
 from prismatic.vla.datasets.rlds.utils.data_utils import save_dataset_statistics
+from prismatic.util.cot_utils import get_cot_tags_list
 
 # Sane Defaults
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -80,7 +81,7 @@ class FinetuneConfig:
     # Fine-tuning Parameters
     batch_size: int = 16                                            # Fine-tuning batch size
     max_steps: int = 200_000                                        # Max number of fine-tuning steps
-    save_steps: int = 5000                                          # Interval for checkpoint saving
+    save_steps: int = 50000                                          # Interval for checkpoint saving
     learning_rate: float = 2e-5                                     # Fine-tuning learning rate
     grad_accumulation_steps: int = 1                                # Gradient accumulation steps
     image_aug: bool = True                                          # Whether to train with image augmentations
@@ -98,6 +99,9 @@ class FinetuneConfig:
     wandb_entity: str = "stanford-voltron"                          # Name of entity to log under
 
     # fmt: on
+
+
+
 
 
 @draccus.wrap()
@@ -252,6 +256,9 @@ def finetune(cfg: FinetuneConfig) -> None:
             action_gt = batch["labels"][:, 1:].to(action_preds.device)
             mask = action_gt > action_tokenizer.action_token_begin_idx
 
+            prompt_tags = get_cot_tags_list()
+
+
             # Compute Accuracy
             correct_preds = (action_preds == action_gt) & mask
             action_accuracy = correct_preds.sum().float() / mask.sum().float()
@@ -279,9 +286,80 @@ def finetune(cfg: FinetuneConfig) -> None:
             smoothened_loss = sum(recent_losses) / len(recent_losses)
             smoothened_action_accuracy = sum(recent_action_accuracies) / len(recent_action_accuracies)
             smoothened_l1_loss = sum(recent_l1_losses) / len(recent_l1_losses)
+            def get_masks(tokens, tags):
+                    tag_tokens = dict()
 
+                    for tag in tags:
+                        encoded_tags = processor.tokenizer.encode_plus(tag, return_tensors="pt")
+                        tag_ids = encoded_tags["input_ids"][0]
+                        tag_tokens[tag] = tag_ids[1:].to(tokens.device)
+
+                    tag_masks = dict()
+                    prev_tag = None
+                    prev_pos = 0
+
+                    def make_mask(a, b):
+                        mask = torch.zeros_like(tokens)
+                        mask[a:b] = 1
+                        return mask
+
+                    for i in range(len(tokens) - 1):
+                        for tag, tag_ids in tag_tokens.items():
+                            if i + len(tag_ids) > len(tokens):
+                                continue
+
+                            if torch.all(tokens[i : i + len(tag_ids)] == tag_ids):
+                                tag_masks[prev_tag] = make_mask(prev_pos, i)
+                                prev_tag = tag
+                                prev_pos = i + len(tag_ids)
+
+                    tag_masks[prev_tag] = make_mask(prev_pos, len(tokens))
+
+                    for tag in tags:
+                        if tag not in tag_masks:
+                            tag_masks[tag] = make_mask(0, 0)
+
+                    return tag_masks
+
+            def get_final_masks(tokens, tags):
+                final_masks = {tag: [] for tag in tags}
+
+                for group in tokens:
+                    group_masks = get_masks(group, tags)
+
+                    for tag in tags:
+                        final_masks[tag].append(group_masks[tag])
+
+                for tag in tags:
+                    final_masks[tag] = torch.stack(final_masks[tag], dim=0)
+
+                return final_masks
+            
             # Push Metrics to W&B (every 10 gradient steps)
             if distributed_state.is_main_process and gradient_step_idx % 10 == 0:
+                final_pred_masks = get_final_masks(action_preds, prompt_tags)
+                final_gt_masks = get_final_masks(action_gt, prompt_tags)
+
+                # Compute accuracy for each tag
+                for tag in prompt_tags:
+                    correct_tags = [0, 0]
+
+                    for reasoning_pred, mask_pred, reasoning_gt, mask_gt in zip(
+                        action_preds, final_pred_masks[tag], action_gt, final_gt_masks[tag]
+                    ):
+                        tag_pred = torch.masked_select(reasoning_pred, mask_pred.bool())
+                        tag_gt = torch.masked_select(reasoning_gt, mask_gt.bool())
+
+                        max_size = max(len(tag_pred), len(tag_gt))
+                        tag_pred = torch.nn.functional.pad(tag_pred, (0, max_size - len(tag_pred)))
+                        tag_gt = torch.nn.functional.pad(tag_gt, (0, max_size - len(tag_gt)))
+
+                        correct_tags[0] += (tag_pred == tag_gt).sum().float()
+                        correct_tags[1] += len(tag_gt)
+
+                    if correct_tags[1] > 0:
+                        tag_accuracy = correct_tags[0] / correct_tags[1]
+                        wandb.log({f"{tag}_accuracy": tag_accuracy}, step=gradient_step_idx)
                 wandb.log(
                     {
                         "train_loss": smoothened_loss,
@@ -297,6 +375,7 @@ def finetune(cfg: FinetuneConfig) -> None:
                 optimizer.zero_grad()
                 progress.update()
 
+            
             # Save Model Checkpoint =>> by default, only keeps the latest checkpoint, continually overwriting it!
             if gradient_step_idx > 0 and gradient_step_idx % cfg.save_steps == 0:
                 if distributed_state.is_main_process:
@@ -326,6 +405,11 @@ def finetune(cfg: FinetuneConfig) -> None:
                 # Block on Main Process Checkpointing
                 dist.barrier()
 
+            # Stop training when max_steps is reached
+            if gradient_step_idx == cfg.max_steps:
+                print(f"Max step {cfg.max_steps} reached! Stopping training...")
+                break
 
+            
 if __name__ == "__main__":
     finetune()

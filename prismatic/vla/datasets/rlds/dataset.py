@@ -57,7 +57,8 @@ def make_dataset_from_rlds(
     action_normalization_mask: Optional[List[bool]] = None,
     num_parallel_reads: int = tf.data.AUTOTUNE,
     num_parallel_calls: int = tf.data.AUTOTUNE,
-    reasoning_dataset_path: str = "~/.cache/reasonings_dataset.json",
+    reasoning_dataset_path: str = "/home/zhekai/code/reasoning_generation/reasoning/reasoning_complete_03-04-12-39.json",
+    #reasoning_dataset_path: str = "/home/zhekai/dataset/embodied_features_bridge/embodied_features_bridge.json",
 ) -> Tuple[dl.DLataset, dict]:
     """
     This function is responsible for loading a specific RLDS dataset from storage and getting it into a standardized
@@ -129,6 +130,8 @@ def make_dataset_from_rlds(
         - action                        # action vector
         - dataset_name                  # name of the dataset
     """
+    
+    reasoning_dataset_path = f'{data_dir}/{name}/reasoning.json'
     REQUIRED_KEYS = {"observation", "action"}
     if language_key is not None:
         REQUIRED_KEYS.add(language_key)
@@ -143,7 +146,6 @@ def make_dataset_from_rlds(
             filename="embodied_features_bridge.json",
             repo_type="dataset",
         )
-
         shutil.copyfile(download_path, reasoning_dataset_path)
 
     with open(reasoning_dataset_path, "r") as f:
@@ -200,6 +202,11 @@ def make_dataset_from_rlds(
                                     reasoning_dict["bboxes"] = ", ".join(
                                         [f"{name} {box!s}" for prob, name, box in boxes_list]
                                     )
+                    
+                    if "task" not in reasoning_dict.keys() or "subtask_reason" not in reasoning_dict.keys():
+                        has_reasoning[0] += 1
+                        print(keys.pop())
+                        break
 
                     values.append(reasoning_dict_to_str(reasoning_dict))
 
@@ -210,7 +217,7 @@ def make_dataset_from_rlds(
 
     reasoning_dataset = make_tf_dict(reasoning_dataset)
 
-    def restructure(traj):
+    def restructure(idx, traj):
         # apply a standardization function, if provided
         if standardize_fn is not None:
             traj = standardize_fn(traj)
@@ -251,7 +258,9 @@ def make_dataset_from_rlds(
 
         # add timestep info
         new_obs["timestep"] = tf.range(traj_len)
-
+        #print red message
+        # print("\033[31m", f'language instruction is {language_key}', "\033[0m")
+        # print("\033[31m", f'{traj}', "\033[0m")
         # extracts `language_key` into the "task" dict
         task = {}
         if language_key is not None:
@@ -262,7 +271,10 @@ def make_dataset_from_rlds(
             task["language_instruction"] = traj.pop(language_key)
 
         file_name = traj["traj_metadata"]["episode_metadata"]["file_path"][0]
-        episode_id = traj["traj_metadata"]["episode_metadata"]["episode_id"][0]
+        if "episode_id" in traj["traj_metadata"]["episode_metadata"]:
+            episode_id = traj["traj_metadata"]["episode_metadata"]["episode_id"][0]
+        else:
+            episode_id = idx
 
         file_names = tf.repeat(file_name, traj_len)
         episode_ids = tf.as_string(tf.repeat(episode_id, traj_len))
@@ -287,19 +299,21 @@ def make_dataset_from_rlds(
                 tf.convert_to_tensor(absolute_action_mask, dtype=tf.bool)[None],
                 [traj_len, 1],
             )
-
         return traj
-
+    
     builder = tfds.builder(name, data_dir=data_dir)
-
     # load or compute dataset statistics
     if isinstance(dataset_statistics, str):
         with tf.io.gfile.GFile(dataset_statistics, "r") as f:
             dataset_statistics = json.load(f)
     elif dataset_statistics is None:
+
+        # Apply the function to the dataset
         full_dataset = dl.DLataset.from_rlds(
             builder, split="all", shuffle=False, num_parallel_reads=num_parallel_reads
-        ).traj_map(restructure, num_parallel_calls)
+        ).enumerate().traj_map(restructure, num_parallel_calls)
+    
+
         # tries to load from cache, otherwise computes on the fly
         dataset_statistics = get_dataset_statistics(
             full_dataset,
@@ -329,7 +343,7 @@ def make_dataset_from_rlds(
 
     dataset = dl.DLataset.from_rlds(builder, split=split, shuffle=shuffle, num_parallel_reads=num_parallel_reads)
 
-    dataset = dataset.traj_map(restructure, num_parallel_calls)
+    dataset = dataset.enumerate().traj_map(restructure, num_parallel_calls)
     dataset = dataset.traj_map(
         partial(
             normalize_action_and_proprio,

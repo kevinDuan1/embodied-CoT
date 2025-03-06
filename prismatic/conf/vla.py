@@ -78,16 +78,15 @@ class Exp_SigLIP_224px_Bridge(VLAConfig):
     epochs: int = 1000
     max_steps: Optional[int] = None
 
-    expected_world_size: int = 8
-    global_batch_size: int = 256
-    per_device_batch_size: int = 32
+    expected_world_size: int = 2 # 8
+    global_batch_size: int = 2 # 256
+    per_device_batch_size: int = 1
 
     learning_rate: float = 2e-5
     weight_decay: float = 0.0
     max_grad_norm: float = 1.0
     lr_scheduler_type: str = "constant"
     warmup_ratio: float = 0.0
-
     train_strategy: str = "fsdp-full-shard"
 
 
@@ -104,7 +103,6 @@ class Exp_FreezeVIT_SigLIP_224px_Bridge(Exp_SigLIP_224px_Bridge):
 class Exp_DinoSigLIP_224px_Bridge(Exp_SigLIP_224px_Bridge):
     vla_id: str = "prism-dinosiglip-224px+mx-bridge"
     base_vlm: Union[str, Path] = "prism-dinosiglip-224px+7b"
-
     data_mix: str = "bridge"
 
 
