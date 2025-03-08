@@ -275,11 +275,28 @@ def make_dataset_from_rlds(
             episode_id = traj["traj_metadata"]["episode_metadata"]["episode_id"][0]
         else:
             episode_id = idx
+            traj["traj_metadata"]["episode_metadata"]["episode_id"] = tf.repeat(episode_id, traj_len)
+            
+
+        # tf.print("file_name", file_name, "episode_id", episode_id)
 
         file_names = tf.repeat(file_name, traj_len)
         episode_ids = tf.as_string(tf.repeat(episode_id, traj_len))
         indices = tf.as_string(tf.range(traj_len))
         reasonings = reasoning_dataset.lookup(file_names + "_" + episode_ids + "_" + indices)
+
+        # Find empty strings in reasonings.
+        empty_mask = tf.equal(reasonings, "")
+        empty_indices = tf.where(empty_mask)
+        if tf.size(empty_indices) > 0:
+            # Get the first index with an empty reasoning.
+            first_empty = empty_indices[0][0]
+            detail = tf.strings.join([
+                file_names[first_empty],
+                episode_ids[first_empty],
+                indices[first_empty]
+            ], separator="_")
+            tf.print("Empty reasoning for trajectory", detail)
 
         traj = {
             "observation": new_obs,
@@ -341,9 +358,13 @@ def make_dataset_from_rlds(
     else:
         split = "train" if train else "val"
 
-    dataset = dl.DLataset.from_rlds(builder, split=split, shuffle=shuffle, num_parallel_reads=num_parallel_reads)
+    dataset = dl.DLataset.from_rlds(builder, split=split, shuffle=False, num_parallel_reads=num_parallel_reads)
+    dataset = dataset.enumerate().traj_map(restructure, num_parallel_calls, deterministic=True)
+    # deterministic=True is important for reasoning
+    options = tf.data.Options()
+    options.deterministic = True
+    dataset = dataset.with_options(options)
 
-    dataset = dataset.enumerate().traj_map(restructure, num_parallel_calls)
     dataset = dataset.traj_map(
         partial(
             normalize_action_and_proprio,
@@ -351,8 +372,8 @@ def make_dataset_from_rlds(
             normalization_type=action_proprio_normalization_type,
         ),
         num_parallel_calls,
+        deterministic=True,
     )
-
     return dataset, dataset_statistics
 
 
@@ -527,6 +548,7 @@ def apply_frame_transforms(
         dataset = dataset.frame_map(aug, num_parallel_calls)
 
     return dataset
+
 
 
 def make_single_dataset(

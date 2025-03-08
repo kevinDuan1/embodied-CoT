@@ -94,6 +94,7 @@ class RLDSBatchTransform:
             self.print_prompt_limit -= 1
 
         # Tokenize (w/ `base_tokenizer`)
+        
         input_ids = self.base_tokenizer(prompt_builder.get_prompt(), add_special_tokens=True).input_ids
         labels = list(input_ids)
 
