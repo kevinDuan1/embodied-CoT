@@ -78,8 +78,8 @@ class Exp_SigLIP_224px_Libero(VLAConfig):
     max_steps: Optional[int] = 200_000
 
     expected_world_size: int = 1 
-    global_batch_size: int = 4 
-    per_device_batch_size: int = 4
+    global_batch_size: int = 2 
+    per_device_batch_size: int = 2
 
     learning_rate: float = 2e-5
     weight_decay: float = 0.0
