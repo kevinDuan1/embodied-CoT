@@ -52,7 +52,7 @@ class VLAConfig(ChoiceRegistry):
 
     # Mixed Precision Training via Torch Native AMP (`autocast`)
     enable_mixed_precision_training: bool = True    # Enable Traditional BF16 Mixed Precision
-    reduce_in_full_precision: bool = True           # Accumulate/Reduce All-Gather Gradients in FP32 Full Precision
+    reduce_in_full_precision: bool = False           # Accumulate/Reduce All-Gather Gradients in FP32 Full Precision
 
     # fmt: on
 
