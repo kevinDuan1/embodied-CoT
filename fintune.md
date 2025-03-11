@@ -50,7 +50,7 @@ mv reasoning*.json /home/zhekai/dataset/modified_libero_rlds/libero_object_no_no
 # fully finetune on libero objects
 torchrun --standalone --nnodes 1 --nproc-per-node 1 vla-scripts/train.py \
   --pretrained_checkpoint  ~/.cache/models/openvla-7b-prismatic/checkpoints/step-295000-epoch-40-loss\=0.2200.pt \
-  --vla.type prism-dinosiglip-224px+mx-libero \
+  --vla.type siglip-224px+mx-libero \
   --data_root_dir /home/zhekai/dataset \
   --run_root_dir outputs \
   --image_aug True \
