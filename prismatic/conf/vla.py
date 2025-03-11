@@ -251,6 +251,9 @@ class VLARegistry(Enum):
 
     # === DROID Fine-tuning Configs ===
     SIGLIP_224PX_MX_DROID_WIPE = Exp_SigLIP_224px_Droid_Wipe
+    
+    LIBERO_224PX_MX_SIGLIP = Exp_SigLIP_224px_Libero
+
 
     @property
     def vla_id(self) -> str:
