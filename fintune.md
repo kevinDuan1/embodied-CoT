@@ -10,9 +10,7 @@ conda activate openvla
 conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia -y  # UPDATE ME!
 
 # Clone and install the openvla repo
-git clone https://github.com/openvla/openvla.git
-cd openvla
-pip install -e .
+pip install -e . 
 
 # Install Flash Attention 2 for training (https://github.com/Dao-AILab/flash-attention)
 #   =>> If you run into difficulty, try `pip cache remove flash_attn` first
