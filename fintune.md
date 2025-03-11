@@ -1,13 +1,37 @@
+download the dataset and model
 ```
-torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/train.py \
+#install LFS 
+sudo apt update
+sudo apt install git-lfs
+git lfs --version
+git lfs install
+
+# download the model
+git clone git@hf.co:openvla/openvla-7b-prismatic
+cd openvla-7b-prismatic
+git lfs fetch --all
+
+# download the dataset
+git clone git@hf.co:datasets/openvla/modified_libero_rlds
+```
+
+download the reasoning and mv to the right place
+
+```
+mv reasoning*.json /home/zhekai/dataset/modified_libero_rlds/libero_object_no_noops/reasoning.json
+```
+
+```
+# fully finetune on libero objects
+torchrun --standalone --nnodes 1 --nproc-per-node 1 vla-scripts/train.py \
   --pretrained_checkpoint  ~/.cache/models/openvla-7b-prismatic/checkpoints/step-295000-epoch-40-loss\=0.2200.pt \
-  --vla.type prism-dinosiglip-224px+mx-bridge \
+  --vla.type prism-dinosiglip-224px+mx-libero \
   --data_root_dir /home/zhekai/dataset \
   --run_root_dir outputs \
   --image_aug True \
   --wandb_project ecot \
   --wandb_entity zhekaiduan2312 \
-  --save_interval 2000 \
+  --save_interval 40000 \
   --is_resume False
 ```
 

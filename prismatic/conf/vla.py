@@ -59,6 +59,35 @@ class VLAConfig(ChoiceRegistry):
 
 # === OpenVLA Training Configurations ===
 
+# = [8 GPU] Fast Iteration =>> SigLIP 224px + Bridge =
+@dataclass
+class Exp_SigLIP_224px_Libero(VLAConfig):
+    vla_id: str = "siglip-224px+mx-libero"
+    base_vlm: Union[str, Path] = "siglip-224px+7b"
+
+    freeze_vision_backbone: bool = False
+    freeze_llm_backbone: bool = False
+    unfreeze_last_llm_layer: bool = False
+
+    # Data Mixture Parameters
+    data_mix: str = "libero_object_no_noops"
+    shuffle_buffer_size: int = 256_000
+
+    # Optimization Parameters
+    epochs: int = 1000
+    max_steps: Optional[int] = 200_000
+
+    expected_world_size: int = 1 
+    global_batch_size: int = 4 
+    per_device_batch_size: int = 4
+
+    learning_rate: float = 2e-5
+    weight_decay: float = 0.0
+    max_grad_norm: float = 1.0
+    lr_scheduler_type: str = "constant"
+    warmup_ratio: float = 0.0
+    train_strategy: str = "fsdp-full-shard"
+
 
 # = [8 GPU] Fast Iteration =>> SigLIP 224px + Bridge =
 @dataclass
@@ -78,9 +107,9 @@ class Exp_SigLIP_224px_Bridge(VLAConfig):
     epochs: int = 1000
     max_steps: Optional[int] = None
 
-    expected_world_size: int = 2 # 8
-    global_batch_size: int = 2 # 256
-    per_device_batch_size: int = 1
+    expected_world_size: int = 1 # 8
+    global_batch_size: int = 4 # 256
+    per_device_batch_size: int = 4
 
     learning_rate: float = 2e-5
     weight_decay: float = 0.0
