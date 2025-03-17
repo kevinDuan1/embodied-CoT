@@ -194,7 +194,8 @@ def finetune(cfg: FinetuneConfig) -> None:
         action_tokenizer,
         processor.tokenizer,
         image_transform=processor.image_processor.apply_transform,
-        prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
+        # prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
+        prompt_builder_fn= VicunaV15ChatPromptBuilder,
     )
     vla_dataset = RLDSDataset(
         cfg.data_root_dir,
