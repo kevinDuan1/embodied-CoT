@@ -86,6 +86,7 @@ class FinetuneConfig:
     grad_accumulation_steps: int = 1                                # Gradient accumulation steps
     image_aug: bool = True                                          # Whether to train with image augmentations
     shuffle_buffer_size: int = 100_000                              # Dataloader shuffle buffer size (can reduce if OOM)
+    reasoning_dropout_prob: float = 0.0                             # Dropout probability for reasoning module
 
     # LoRA Arguments
     use_lora: bool = True                                           # Whether to use LoRA fine-tuning
@@ -196,6 +197,7 @@ def finetune(cfg: FinetuneConfig) -> None:
         image_transform=processor.image_processor.apply_transform,
         # prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
         prompt_builder_fn= VicunaV15ChatPromptBuilder,
+        reasoning_dropout_prob=cfg.reasoning_dropout_prob,
     )
     vla_dataset = RLDSDataset(
         cfg.data_root_dir,

@@ -86,6 +86,7 @@ torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py \
   --dataset_name libero_object_no_noops \
   --run_root_dir outputs \
   --adapter_tmp_dir  outputs/temp \
+  --reasoning_dropout_prob 0.2 \
   --lora_rank 32 \
   --batch_size 1 \
   --grad_accumulation_steps 1 \
@@ -93,5 +94,5 @@ torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py \
   --image_aug True \
   --wandb_project ecot \
   --wandb_entity zhekaiduan2312 \
-  --save_steps 20000
+  --save_steps 20000 
 ```
