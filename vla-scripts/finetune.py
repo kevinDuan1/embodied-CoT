@@ -247,24 +247,23 @@ def finetune(cfg: FinetuneConfig) -> None:
                 )
                 loss = output.loss
 
-            # Normalize loss to account for gradient accumulation
-            normalized_loss = loss / cfg.grad_accumulation_steps
-
-            # Backward pass
-            normalized_loss.backward()
-
             # Compute Accuracy and L1 Loss for Logging
             action_logits = output.logits[:, vla.module.vision_backbone.featurizer.patch_embed.num_patches : -1]
             action_preds = action_logits.argmax(dim=2)
             action_gt = batch["labels"][:, 1:].to(action_preds.device)
             mask = action_gt > action_tokenizer.action_token_begin_idx
-
             prompt_tags = get_cot_tags_list()
-
-
             # Compute Accuracy
             correct_preds = (action_preds == action_gt) & mask
             action_accuracy = correct_preds.sum().float() / mask.sum().float()
+            loss_fn = torch.nn.CrossEntropyLoss(reduction='none')
+            loss_action = loss_fn(action_logits[mask], action_gt[mask]).mean()
+
+            loss = loss_action + loss
+            # Normalize loss to account for gradient accumulation
+            normalized_loss = loss / cfg.grad_accumulation_steps
+            # Backward pass
+            normalized_loss.backward()
 
             # Compute L1 Loss on Predicted (Continuous) Actions
             continuous_actions_pred = torch.tensor(
