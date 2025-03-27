@@ -258,8 +258,8 @@ def finetune(cfg: FinetuneConfig) -> None:
             action_accuracy = correct_preds.sum().float() / mask.sum().float()
             loss_fn = torch.nn.CrossEntropyLoss(reduction='none')
             loss_action = loss_fn(action_logits[mask], action_gt[mask]).mean()
-
             loss = loss_action + loss
+
             # Normalize loss to account for gradient accumulation
             normalized_loss = loss / cfg.grad_accumulation_steps
             # Backward pass
