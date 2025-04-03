@@ -87,6 +87,7 @@ class FinetuneConfig:
     image_aug: bool = True                                          # Whether to train with image augmentations
     shuffle_buffer_size: int = 100_000                              # Dataloader shuffle buffer size (can reduce if OOM)
     reasoning_dropout_prob: float = 0.0                             # Dropout probability for reasoning module
+    action_loss: bool = True
 
     # LoRA Arguments
     use_lora: bool = True                                           # Whether to use LoRA fine-tuning
@@ -254,11 +255,12 @@ def finetune(cfg: FinetuneConfig) -> None:
             mask = action_gt > action_tokenizer.action_token_begin_idx
             prompt_tags = get_cot_tags_list()
             # Compute Accuracy
-            correct_preds = (action_preds == action_gt) & mask
-            action_accuracy = correct_preds.sum().float() / mask.sum().float()
-            loss_fn = torch.nn.CrossEntropyLoss(reduction='none')
-            loss_action = loss_fn(action_logits[mask], action_gt[mask]).mean()
-            loss = loss_action + loss
+            if cfg.action_loss:
+                correct_preds = (action_preds == action_gt) & mask
+                action_accuracy = correct_preds.sum().float() / mask.sum().float()
+                loss_fn = torch.nn.CrossEntropyLoss(reduction='none')
+                loss_action = loss_fn(action_logits[mask], action_gt[mask]).mean()
+                loss = loss_action + loss
 
             # Normalize loss to account for gradient accumulation
             normalized_loss = loss / cfg.grad_accumulation_steps
