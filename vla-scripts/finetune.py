@@ -255,9 +255,9 @@ def finetune(cfg: FinetuneConfig) -> None:
             mask = action_gt > action_tokenizer.action_token_begin_idx
             prompt_tags = get_cot_tags_list()
             # Compute Accuracy
+            correct_preds = (action_preds == action_gt) & mask
+            action_accuracy = correct_preds.sum().float() / mask.sum().float()
             if cfg.action_loss:
-                correct_preds = (action_preds == action_gt) & mask
-                action_accuracy = correct_preds.sum().float() / mask.sum().float()
                 loss_fn = torch.nn.CrossEntropyLoss(reduction='none')
                 loss_action = loss_fn(action_logits[mask], action_gt[mask]).mean()
                 loss = loss_action + loss
