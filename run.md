@@ -33,8 +33,8 @@ run droid
 ```
 torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py \
   --vla_path "Embodied-CoT/ecot-openvla-7b-oxe" \
-  --data_root_dir /home/zhekai/dataset/modified_libero_rlds \
-  --dataset_name libero_object_no_noops \
+  --data_root_dir /home/zhekai/dataset/ \
+  --dataset_name custom_droid_rlds_dataset \
   --run_root_dir outputs \
   --adapter_tmp_dir  outputs/temp \
   --lora_rank 32 \
