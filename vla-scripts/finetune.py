@@ -77,6 +77,7 @@ class FinetuneConfig:
     dataset_name: str = "droid_wipe"                                # Name of fine-tuning dataset (e.g., `droid_wipe`)
     run_root_dir: Path = Path("runs")                               # Path to directory to store logs & checkpoints
     adapter_tmp_dir: Path = Path("adapter-tmp")                     # Temporary directory for LoRA weights before fusing
+    resume_dir: Path = Path("no_dir_has_this_name")                 # Path to directory to store logs & checkpoints
 
     # Fine-tuning Parameters
     batch_size: int = 16                                            # Fine-tuning batch size
@@ -142,14 +143,33 @@ def finetune(cfg: FinetuneConfig) -> None:
         )
 
     # Load OpenVLA Processor and Model using HF AutoClasses
-    processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True)
-    vla = AutoModelForVision2Seq.from_pretrained(
-        cfg.vla_path,
-        torch_dtype=torch.bfloat16,
-        quantization_config=quantization_config,
-        low_cpu_mem_usage=True,
-        trust_remote_code=True,
-    )
+    if cfg.resume_dir.exists():
+        print(f"[INFO] Resuming checkpoint from {cfg.resume_dir}...")
+        processor = AutoProcessor.from_pretrained(cfg.resume_dir, trust_remote_code=True)
+        vla = AutoModelForVision2Seq.from_pretrained(
+            cfg.resume_dir,
+            torch_dtype=torch.bfloat16,
+            quantization_config=quantization_config,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+        )
+        checkpoint = torch.load(cfg.resume_dir / 'training_params.pth')
+        optimizer_state_dict = checkpoint['optimizer_state_dict']
+        trained_gradient_step = checkpoint['gradient_step_idx']
+        print(f"Resume training from gradient_step_idx: {trained_gradient_step}")
+    else:
+        print(f"[INFO] Initializing checkpoint from {cfg.vla_path}...")
+        processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True)
+        vla = AutoModelForVision2Seq.from_pretrained(
+            cfg.vla_path,
+            torch_dtype=torch.bfloat16,
+            quantization_config=quantization_config,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+        )
+        optimizer_state_dict = None
+        trained_gradient_step = 0
+
 
     # Device Placement =>> note that BitsAndBytes automatically handles for quantized training
     if cfg.use_quantization:
@@ -172,9 +192,13 @@ def finetune(cfg: FinetuneConfig) -> None:
     # Wrap VLA in PyTorch DDP Wrapper for Multi-GPU Training
     vla = DDP(vla, device_ids=[device_id], find_unused_parameters=True, gradient_as_bucket_view=True)
 
+
+
     # Create Optimizer =>> note that we default to a simple constant learning rate!
     trainable_params = [param for param in vla.parameters() if param.requires_grad]
     optimizer = AdamW(trainable_params, lr=cfg.learning_rate)
+    if optimizer_state_dict is not None:
+        optimizer.load_state_dict(optimizer_state_dict)
 
     # Create Action Tokenizer
     action_tokenizer = ActionTokenizer(processor.tokenizer)
@@ -284,7 +308,7 @@ def finetune(cfg: FinetuneConfig) -> None:
             recent_l1_losses.append(action_l1_loss.item())
 
             # Compute gradient step index
-            gradient_step_idx = batch_idx // cfg.grad_accumulation_steps
+            gradient_step_idx = batch_idx // cfg.grad_accumulation_steps + trained_gradient_step
 
             # Compute smoothened train metrics
             #   =>> Equal to current step metrics when not using gradient accumulation
@@ -393,6 +417,12 @@ def finetune(cfg: FinetuneConfig) -> None:
                     # Save Processor & Weights
                     processor.save_pretrained(run_dir)
                     vla.module.save_pretrained(save_dir)
+
+                    # Save training params
+                    torch.save({
+                        "gradient_step_idx": gradient_step_idx, 
+                        "optimizer_state_dict": optimizer.state_dict(),
+                    }, run_dir / "training_params.pth")
 
                 # Wait for processor and adapter weights to be saved by main process
                 dist.barrier()
