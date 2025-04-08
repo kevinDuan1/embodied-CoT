@@ -86,6 +86,8 @@ class FinetuneConfig:
     grad_accumulation_steps: int = 1                                # Gradient accumulation steps
     image_aug: bool = True                                          # Whether to train with image augmentations
     shuffle_buffer_size: int = 100_000                              # Dataloader shuffle buffer size (can reduce if OOM)
+    reasoning_dropout_prob: float = 0.0                             # Dropout probability for reasoning module
+    action_loss: bool = True
 
     # LoRA Arguments
     use_lora: bool = True                                           # Whether to use LoRA fine-tuning
@@ -124,6 +126,8 @@ def finetune(cfg: FinetuneConfig) -> None:
         exp_id += f"+lora-r{cfg.lora_rank}+dropout-{cfg.lora_dropout}"
     if cfg.use_quantization:
         exp_id += "+q-4bit"
+    if cfg.action_loss:
+        exp_id += "+action_loss" 
 
     # Start =>> Build Directories
     run_dir, adapter_dir = cfg.run_root_dir / exp_id, cfg.adapter_tmp_dir / exp_id
@@ -194,7 +198,9 @@ def finetune(cfg: FinetuneConfig) -> None:
         action_tokenizer,
         processor.tokenizer,
         image_transform=processor.image_processor.apply_transform,
-        prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
+        # prompt_builder_fn=PurePromptBuilder if "v01" not in cfg.vla_path else VicunaV15ChatPromptBuilder,
+        prompt_builder_fn= VicunaV15ChatPromptBuilder,
+        reasoning_dropout_prob=cfg.reasoning_dropout_prob,
     )
     vla_dataset = RLDSDataset(
         cfg.data_root_dir,
@@ -244,24 +250,24 @@ def finetune(cfg: FinetuneConfig) -> None:
                 )
                 loss = output.loss
 
-            # Normalize loss to account for gradient accumulation
-            normalized_loss = loss / cfg.grad_accumulation_steps
-
-            # Backward pass
-            normalized_loss.backward()
-
             # Compute Accuracy and L1 Loss for Logging
             action_logits = output.logits[:, vla.module.vision_backbone.featurizer.patch_embed.num_patches : -1]
             action_preds = action_logits.argmax(dim=2)
             action_gt = batch["labels"][:, 1:].to(action_preds.device)
             mask = action_gt > action_tokenizer.action_token_begin_idx
-
             prompt_tags = get_cot_tags_list()
-
-
             # Compute Accuracy
             correct_preds = (action_preds == action_gt) & mask
             action_accuracy = correct_preds.sum().float() / mask.sum().float()
+            if cfg.action_loss:
+                loss_fn = torch.nn.CrossEntropyLoss(reduction='none')
+                loss_action = loss_fn(action_logits[mask], action_gt[mask]).mean()
+                loss = loss_action + loss
+
+            # Normalize loss to account for gradient accumulation
+            normalized_loss = loss / cfg.grad_accumulation_steps
+            # Backward pass
+            normalized_loss.backward()
 
             # Compute L1 Loss on Predicted (Continuous) Actions
             continuous_actions_pred = torch.tensor(

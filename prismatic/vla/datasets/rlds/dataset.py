@@ -296,7 +296,7 @@ def make_dataset_from_rlds(
                 episode_ids[first_empty],
                 indices[first_empty]
             ], separator="_")
-            tf.print("Empty reasoning for trajectory", detail)
+            # tf.print("Empty reasoning for trajectory", detail)
 
         traj = {
             "observation": new_obs,
