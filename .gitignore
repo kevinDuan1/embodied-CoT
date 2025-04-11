@@ -153,3 +153,5 @@ wandb/
 
 test_obs.png
 modified_libero_rlds
+qsub
+qsub_log
