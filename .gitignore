@@ -155,3 +155,6 @@ test_obs.png
 modified_libero_rlds
 qsub
 qsub_log
+__auto*
+tmp*
+outputs*
