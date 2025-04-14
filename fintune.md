@@ -94,5 +94,23 @@ torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py \
   --image_aug True \
   --wandb_project ecot \
   --wandb_entity zhekaiduan2312 \
-  --save_steps 50000 
-```
+  --save_steps 50000 \
+  --action_loss False 
+
+# goal
+  torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py \
+  --vla_path "Embodied-CoT/ecot-openvla-7b-oxe" \
+  --data_root_dir /home/zhekai/dataset/modified_libero_rlds \
+  --dataset_name libero_goal_no_noops \
+  --run_root_dir outputs \
+  --adapter_tmp_dir  outputs/temp \
+  --reasoning_dropout_prob 0 \
+  --lora_rank 32 \
+  --batch_size 1 \
+  --grad_accumulation_steps 1 \
+  --learning_rate 5e-4 \
+  --image_aug True \
+  --wandb_project ecot \
+  --wandb_entity zhekaiduan2312 \
+  --save_steps 50000 \
+  --action_loss False   

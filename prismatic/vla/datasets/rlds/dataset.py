@@ -296,7 +296,7 @@ def make_dataset_from_rlds(
                 episode_ids[first_empty],
                 indices[first_empty]
             ], separator="_")
-            # tf.print("Empty reasoning for trajectory", detail)
+            tf.print("Empty reasoning for trajectory", detail)
 
         traj = {
             "observation": new_obs,
@@ -328,7 +328,7 @@ def make_dataset_from_rlds(
         # Apply the function to the dataset
         full_dataset = dl.DLataset.from_rlds(
             builder, split="all", shuffle=False, num_parallel_reads=num_parallel_reads
-        ).enumerate().traj_map(restructure, num_parallel_calls)
+        ).enumerate().traj_map(restructure, num_parallel_calls, deterministic=True)
     
 
         # tries to load from cache, otherwise computes on the fly
