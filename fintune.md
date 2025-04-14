@@ -1,8 +1,8 @@
 environment setup
 ```
 # Create and activate conda environment
-conda create -n openvla python=3.10 -y
-conda activate openvla
+conda create -n ecot python=3.11 -y
+conda activate ecot
 
 # Install PyTorch. Below is a sample command to do this, but you should check the following link
 # to find installation instructions that are specific to your compute platform:
@@ -22,8 +22,6 @@ pip install "flash-attn==2.5.5" --no-build-isolation
 
 
 download the dataset and model
-
-
 ```
 #install LFS 
 sudo apt update
@@ -80,19 +78,19 @@ torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py \
 
 run droid 
 ```
-torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py \
+torchrun --standalone --nnodes 1 --nproc-per-node 4 vla-scripts/finetune.py \
   --vla_path "Embodied-CoT/ecot-openvla-7b-oxe" \
-  --data_root_dir /home/zhekai/dataset/modified_libero_rlds \
+  --data_root_dir dataset/modified_libero_rlds \
   --dataset_name libero_object_no_noops \
   --run_root_dir outputs \
   --adapter_tmp_dir  outputs/temp \
   --reasoning_dropout_prob 0 \
-  --lora_rank 32 \
+  --lora_rank 1024 \
   --batch_size 1 \
   --grad_accumulation_steps 1 \
   --learning_rate 5e-4 \
   --image_aug True \
   --wandb_project ecot \
   --wandb_entity zhekaiduan2312 \
-  --save_steps 50000 
+  --save_steps 40000 
 ```
