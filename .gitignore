@@ -147,9 +147,12 @@ dmypy.json
 # Caches and Datasets
 cache/
 data/
-tmp/
+tmp*/
 dataset
 wandb/
 
 test_obs.png
 modified_libero_rlds
+
+__autograph*
+outputs*
