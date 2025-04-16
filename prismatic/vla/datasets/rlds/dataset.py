@@ -275,10 +275,6 @@ def make_dataset_from_rlds(
             episode_id = traj["traj_metadata"]["episode_metadata"]["episode_id"][0]
         else:
             episode_id = idx
-            traj["traj_metadata"]["episode_metadata"]["episode_id"] = tf.repeat(episode_id, traj_len)
-            
-
-        # tf.print("file_name", file_name, "episode_id", episode_id)
 
         file_names = tf.repeat(file_name, traj_len)
         episode_ids = tf.as_string(tf.repeat(episode_id, traj_len))
@@ -296,7 +292,7 @@ def make_dataset_from_rlds(
                 episode_ids[first_empty],
                 indices[first_empty]
             ], separator="_")
-            # tf.print("Empty reasoning for trajectory", detail)
+            tf.print("Empty reasoning for trajectory", detail)
 
         traj = {
             "observation": new_obs,
@@ -329,7 +325,6 @@ def make_dataset_from_rlds(
         full_dataset = dl.DLataset.from_rlds(
             builder, split="all", shuffle=False, num_parallel_reads=num_parallel_reads
         ).enumerate().traj_map(restructure, num_parallel_calls, deterministic=True)
-    
 
         # tries to load from cache, otherwise computes on the fly
         dataset_statistics = get_dataset_statistics(
@@ -358,7 +353,7 @@ def make_dataset_from_rlds(
     else:
         split = "train" if train else "val"
 
-    dataset = dl.DLataset.from_rlds(builder, split=split, shuffle=False, num_parallel_reads=num_parallel_reads)
+    dataset = dl.DLataset.from_rlds(builder, split='all', shuffle=False, num_parallel_reads=num_parallel_reads)
     dataset = dataset.enumerate().traj_map(restructure, num_parallel_calls, deterministic=True)
     # deterministic=True is important for reasoning
     options = tf.data.Options()
@@ -678,6 +673,7 @@ def make_interleaved_dataset(
             num_parallel_reads=reads,
             dataset_statistics=all_dataset_statistics[dataset_kwargs["name"]],
         )
+        
         dataset = apply_trajectory_transforms(
             dataset.repeat(),
             **traj_transform_kwargs,
@@ -696,7 +692,7 @@ def make_interleaved_dataset(
 
     # Shuffle the Dataset
     #   =>> IMPORTANT :: Shuffle AFTER .cache(), or else memory will still leak!
-    # dataset = dataset.shuffle(shuffle_buffer_size)
+    dataset = dataset.shuffle(shuffle_buffer_size)
 
     # Apply Frame Transforms
     overwatch.info("Applying frame transforms on dataset...")

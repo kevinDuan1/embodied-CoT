@@ -86,9 +86,9 @@ class FinetuneConfig:
     learning_rate: float = 2e-5                                     # Fine-tuning learning rate
     grad_accumulation_steps: int = 1                                # Gradient accumulation steps
     image_aug: bool = True                                          # Whether to train with image augmentations
-    shuffle_buffer_size: int = 100_000                              # Dataloader shuffle buffer size (can reduce if OOM)
+    shuffle_buffer_size: int = 100_000#100_000                              # Dataloader shuffle buffer size (can reduce if OOM)
     reasoning_dropout_prob: float = 0.0                             # Dropout probability for reasoning module
-    action_loss: bool = True
+    action_loss: bool = False
 
     # LoRA Arguments
     use_lora: bool = True                                           # Whether to use LoRA fine-tuning

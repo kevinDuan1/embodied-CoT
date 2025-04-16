@@ -78,14 +78,14 @@ torchrun --standalone --nnodes 1 --nproc-per-node 2 vla-scripts/finetune.py \
 
 run droid 
 ```
-torchrun --standalone --nnodes 1 --nproc-per-node 4 vla-scripts/finetune.py \
+torchrun --standalone --nnodes 1 --nproc-per-node 1 vla-scripts/finetune.py \
   --vla_path "Embodied-CoT/ecot-openvla-7b-oxe" \
   --data_root_dir dataset/modified_libero_rlds \
-  --dataset_name libero_object_no_noops \
+  --dataset_name libero_spatial_no_noops \
   --run_root_dir outputs \
   --adapter_tmp_dir  outputs/temp \
   --reasoning_dropout_prob 0 \
-  --lora_rank 1024 \
+  --lora_rank 32 \
   --batch_size 1 \
   --grad_accumulation_steps 1 \
   --learning_rate 5e-4 \
