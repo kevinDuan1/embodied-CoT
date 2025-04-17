@@ -116,3 +116,14 @@ If you find our code or models useful in your work, please cite [our paper](http
     year={2024}
 }
 ```
+
+
+```
+
+fix missing reasoning 
+
+locate miniforge3/envs/ecot/lib/python3.10/site-packages/dlimp/dataset.py
+
+comment out line
+    
+    interleave_cycle_length=num_parallel_reads,
